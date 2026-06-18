@@ -19,6 +19,14 @@ spec:
       labels:
         app: otfl
     spec:
+      # The image runs as the unprivileged `node` user (uid/gid 1000). The
+      # Longhorn PVC mounts root-owned, so without fsGroup the node user can't
+      # create the SQLite file (SQLITE_CANTOPEN). fsGroup makes the kubelet
+      # chown the volume to gid 1000 and group-writable.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: otfl
           # :latest is mutable — the build workflow rebuilds on every push to
