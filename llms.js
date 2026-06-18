@@ -14,6 +14,24 @@ Base URL: ${base}
 Content type: application/JSON for all request and response bodies.
 No authentication. No rate-limit headers today — be reasonable.
 
+## MCP server (recommended for assistants)
+
+OTFL speaks the Model Context Protocol over Streamable HTTP at:
+
+    ${base}/mcp
+
+It is stateless — just POST JSON-RPC (no session needed). Add it to an MCP
+client config, e.g.:
+
+\`\`\`json
+{ "mcpServers": { "otfl": { "type": "http", "url": "${base}/mcp" } } }
+\`\`\`
+
+Tools: create_list, get_list, rename_list, delete_list, add_item, update_item,
+toggle_item, delete_item, clear_checked. create_list/get_list return a
+share_url you can hand to the user. If you can use MCP, prefer it over the raw
+HTTP API below.
+
 ## Quickstart
 
 Create a list with two items, then check the first one off:

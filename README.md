@@ -48,6 +48,22 @@ curl -s -X POST https://otfl.inevitable.fyi/api/lists \
 The full, assistant-friendly reference is generated at
 [`/llms.txt`](https://otfl.inevitable.fyi/llms.txt).
 
+## MCP server
+
+OTFL speaks the [Model Context Protocol](https://modelcontextprotocol.io) over
+stateless Streamable HTTP at **`https://otfl.inevitable.fyi/mcp`** — point any
+MCP client at it:
+
+```json
+{ "mcpServers": { "otfl": { "type": "http", "url": "https://otfl.inevitable.fyi/mcp" } } }
+```
+
+Tools: `create_list`, `get_list`, `rename_list`, `delete_list`, `add_item`,
+`update_item`, `toggle_item`, `delete_item`, `clear_checked`. The
+`create_list`/`get_list` tools return a `share_url` to hand to the user. The
+server is stateless (no sessions), so it works behind the same single replica
+as the web app.
+
 ## Develop
 
 ```bash

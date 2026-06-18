@@ -4,6 +4,7 @@ const path = require("path");
 const express = require("express");
 const store = require("./db");
 const { llmsTxt } = require("./llms");
+const { mcpPostHandler, mcpMethodNotAllowed } = require("./mcp");
 
 const app = express();
 app.disable("x-powered-by");
@@ -93,6 +94,13 @@ api.post("/lists/:id/clear-checked", (req, res) => {
 });
 
 app.use("/api", api);
+
+// ---------------------------------------------------------------------------
+// MCP — stateless Streamable HTTP endpoint for AI assistants
+// ---------------------------------------------------------------------------
+app.post("/mcp", mcpPostHandler(store, PUBLIC_URL));
+app.get("/mcp", mcpMethodNotAllowed);
+app.delete("/mcp", mcpMethodNotAllowed);
 
 // ---------------------------------------------------------------------------
 // llms.txt — teach an assistant how to use the service
