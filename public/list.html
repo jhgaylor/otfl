@@ -91,6 +91,8 @@
 
       const ul = $("#items");
       for (const item of state.items) ul.appendChild(itemEl(item));
+      // Textareas must be in the DOM to measure scrollHeight.
+      ul.querySelectorAll(".item-text").forEach(autosize);
 
       $("#title").addEventListener("change", async (e) => {
         await api("PATCH", "", { title: e.target.value });
@@ -138,13 +140,22 @@
         updateCount();
       });
 
-      const text = document.createElement("input");
-      text.type = "text";
+      const text = document.createElement("textarea");
       text.className = "item-text";
+      text.rows = 1;
       text.value = item.text;
+      text.addEventListener("input", () => autosize(text));
+      // Enter commits (and blurs) instead of inserting a newline; Shift+Enter
+      // still adds a line break for multi-line items.
+      text.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          text.blur();
+        }
+      });
       text.addEventListener("change", async () => {
         const v = text.value.trim();
-        if (!v) return;
+        if (!v || v === item.text) return;
         await api("PATCH", "/items/" + item.id, { text: v });
         item.text = v;
         toast("Saved");
@@ -170,6 +181,11 @@
       const total = state.items.length;
       const c = $(".count");
       if (c) c.textContent = `${done}/${total}`;
+    }
+
+    function autosize(el) {
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
     }
 
     function esc(s) {

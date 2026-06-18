@@ -185,7 +185,7 @@ button.icon:hover { color: var(--danger); }
 ul.items { list-style: none; margin: 0; padding: 0; }
 li.item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 4px;
   border-bottom: 1px solid var(--border);
@@ -197,6 +197,7 @@ li.item:last-child { border-bottom: none; }
   width: 22px;
   height: 22px;
   min-width: 22px;
+  margin-top: 1px;
   border: 2px solid var(--border);
   border-radius: 7px;
   cursor: pointer;
@@ -220,17 +221,28 @@ li.item:last-child { border-bottom: none; }
 }
 .item-text {
   flex: 1;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
   border: none;
   background: transparent;
   color: var(--text);
+  font-family: inherit;
   font-size: 1.02rem;
-  padding: 2px 0;
+  line-height: 1.45;
+  padding: 1px 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .item-text:focus { outline: none; }
 li.item.done .item-text {
   color: var(--done);
   text-decoration: line-through;
 }
+
+.item .icon { margin-top: 1px; }
 
 .add-row { margin-top: 18px; }
 
