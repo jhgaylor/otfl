@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OTFL list</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/"><span class="dot"></span> OTFL</a>
+      <nav class="links">
+        <a href="#" id="share-link">Share</a>
+        <a href="/llms.txt">llms.txt</a>
+      </nav>
+    </header>
+
+    <div id="app">
+      <p class="muted">Loading…</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = (s, r = document) => r.querySelector(s);
+    const listId = decodeURIComponent(location.pathname.split("/")[2] || "");
+    const app = $("#app");
+    let state = null;
+
+    function toast(msg) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => t.classList.remove("show"), 1600);
+    }
+
+    async function api(method, path, body) {
+      const res = await fetch("/api/lists/" + listId + path, {
+        method,
+        headers: body ? { "content-type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    function fmtDate(iso) {
+      try { return new Date(iso).toLocaleString(); } catch { return iso; }
+    }
+
+    async function load() {
+      const res = await fetch("/api/lists/" + listId);
+      if (res.status === 404) {
+        app.innerHTML = `
+          <h1>List not found</h1>
+          <p class="muted">No list exists with this id. It may have been deleted, or the link is wrong.</p>
+          <p><a href="/">← Make a new one</a></p>`;
+        return;
+      }
+      state = await res.json();
+      render();
+    }
+
+    function render() {
+      const done = state.items.filter((i) => i.checked).length;
+      const total = state.items.length;
+      app.innerHTML = `
+        <div class="list-head">
+          <input class="list-title" id="title" value="${esc(state.title)}" />
+        </div>
+        <div class="meta">
+          <span class="count">${done}/${total}</span> done ·
+          updated ${fmtDate(state.updated_at)}
+        </div>
+        <ul class="items" id="items"></ul>
+        <form class="row add-row" id="add-form">
+          <input type="text" id="add-input" placeholder="Add an item…" autocomplete="off" />
+          <button type="submit">Add</button>
+        </form>
+        <div class="footer-actions">
+          <span class="small muted">id <code class="id">${esc(state.id)}</code></span>
+          <span class="row">
+            ${done ? '<button class="ghost" id="clear">Clear checked</button>' : ""}
+            <button class="ghost" id="del">Delete list</button>
+          </span>
+        </div>`;
+
+      const ul = $("#items");
+      for (const item of state.items) ul.appendChild(itemEl(item));
+
+      $("#title").addEventListener("change", async (e) => {
+        await api("PATCH", "", { title: e.target.value });
+        toast("Renamed");
+      });
+
+      $("#add-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = $("#add-input");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        const item = await api("POST", "/items", { text });
+        state.items.push(item);
+        render();
+        $("#add-input").focus();
+      });
+
+      const clear = $("#clear");
+      if (clear) clear.addEventListener("click", async () => {
+        await api("POST", "/clear-checked");
+        await load();
+        toast("Cleared checked items");
+      });
+
+      $("#del").addEventListener("click", async () => {
+        if (!confirm("Delete this entire list? This cannot be undone.")) return;
+        await api("DELETE", "");
+        location.href = "/";
+      });
+    }
+
+    function itemEl(item) {
+      const li = document.createElement("li");
+      li.className = "item" + (item.checked ? " done" : "");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "check";
+      cb.checked = item.checked;
+      cb.addEventListener("change", async () => {
+        const updated = await api("POST", "/items/" + item.id + "/toggle");
+        Object.assign(item, updated);
+        li.className = "item" + (item.checked ? " done" : "");
+        updateCount();
+      });
+
+      const text = document.createElement("input");
+      text.type = "text";
+      text.className = "item-text";
+      text.value = item.text;
+      text.addEventListener("change", async () => {
+        const v = text.value.trim();
+        if (!v) return;
+        await api("PATCH", "/items/" + item.id, { text: v });
+        item.text = v;
+        toast("Saved");
+      });
+
+      const del = document.createElement("button");
+      del.className = "icon";
+      del.title = "Delete item";
+      del.textContent = "✕";
+      del.addEventListener("click", async () => {
+        await api("DELETE", "/items/" + item.id);
+        state.items = state.items.filter((i) => i.id !== item.id);
+        li.remove();
+        updateCount();
+      });
+
+      li.append(cb, text, del);
+      return li;
+    }
+
+    function updateCount() {
+      const done = state.items.filter((i) => i.checked).length;
+      const total = state.items.length;
+      const c = $(".count");
+      if (c) c.textContent = `${done}/${total}`;
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    $("#share-link").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const url = location.href;
+      try {
+        if (navigator.share) { await navigator.share({ url }); return; }
+        await navigator.clipboard.writeText(url);
+        toast("Link copied");
+      } catch { toast("Link copied"); }
+    });
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules
+data
+.git
+.github
+npm-debug.log
+*.md
+k8s
+.gitignore

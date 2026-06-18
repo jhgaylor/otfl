@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otfl
+  namespace: otfl
+  labels:
+    app: otfl
+spec:
+  replicas: 1
+  # SQLite is single-writer; the PVC is RWO. Rolling updates would deadlock
+  # waiting for the old pod to release the volume. Recreate avoids that.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: otfl
+  template:
+    metadata:
+      labels:
+        app: otfl
+    spec:
+      containers:
+        - name: otfl
+          # :latest is mutable — the build workflow rebuilds on every push to
+          # main. imagePullPolicy: Always forces a manifest check on pod start
+          # so `kubectl rollout restart` picks up the new digest.
+          image: ghcr.io/jhgaylor/otfl:latest
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DATA_DIR
+              value: /data
+            - name: PUBLIC_URL
+              value: https://otfl.inevitable.fyi
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: otfl-data

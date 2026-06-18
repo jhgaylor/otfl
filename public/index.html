@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OTFL — On The Fly List</title>
+  <meta name="description" content="Make a shareable checklist in one click. No account, no login. Knowing the link is the only key." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/"><span class="dot"></span> OTFL</a>
+      <nav class="links">
+        <a href="/llms.txt">llms.txt</a>
+        <a href="https://github.com/jhgaylor/otfl" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </header>
+
+    <h1>On the fly lists.</h1>
+    <p class="tagline">
+      Spin up a shareable checklist in one click. No account, no sign-in —
+      whoever has the link can view and check things off. There's an API too.
+    </p>
+
+    <div class="card">
+      <h2>Create a list</h2>
+      <div class="row stack">
+        <input type="text" id="title" placeholder="Title (optional) — e.g. Camping trip" autocomplete="off" />
+        <div class="row">
+          <button id="create">Create list →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Open an existing list</h2>
+      <form class="row" id="open-form">
+        <input type="text" id="open-input" placeholder="Paste a list link or id" autocomplete="off" />
+        <button class="ghost" type="submit">Open</button>
+      </form>
+    </div>
+
+    <p class="small muted center" style="margin-top:28px">
+      Teaching an assistant? Point it at <a href="/llms.txt">/llms.txt</a>.
+    </p>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+
+    $("#create").addEventListener("click", async () => {
+      const title = $("#title").value.trim();
+      const res = await fetch("/api/lists", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(title ? { title } : {}),
+      });
+      const list = await res.json();
+      location.href = "/l/" + list.id;
+    });
+
+    $("#title").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $("#create").click();
+    });
+
+    $("#open-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const raw = $("#open-input").value.trim();
+      if (!raw) return;
+      // Accept a full URL or a bare id.
+      const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      const id = m ? m[0] : raw;
+      location.href = "/l/" + encodeURIComponent(id);
+    });
+  </script>
+</body>
+</html>

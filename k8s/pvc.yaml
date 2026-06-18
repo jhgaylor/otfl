@@ -1,0 +1,15 @@
+# OTFL stores everything in one SQLite file on this PVC. SQLite is
+# single-writer, so the Deployment is single-replica with a Recreate strategy
+# to avoid the RWO PVC handoff deadlock (same pattern as ntfy/grafana).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: otfl-data
+  namespace: otfl
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
