@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My lists — OTFL</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/"><span class="dot"></span> OTFL</a>
+      <nav class="links">
+        <a href="/llms.txt">llms.txt</a>
+        <span id="auth-slot"></span>
+      </nav>
+    </header>
+
+    <div id="app"><p class="muted">Loading…</p></div>
+  </div>
+
+  <script src="/auth.js"></script>
+  <script>
+    const $ = (s, r = document) => r.querySelector(s);
+    const app = $("#app");
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+    function fmtDate(iso) {
+      try { return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+      catch { return iso; }
+    }
+
+    async function load() {
+      const res = await fetch("/api/my/lists");
+      if (res.status === 401) {
+        const me = await window.otflMe;
+        app.innerHTML = `
+          <h1>My lists</h1>
+          <p class="muted">Sign in with GitHub to name your lists and keep track of them.</p>
+          ${me && me.auth_enabled
+            ? '<p><a class="btnlink" href="/auth/github?rd=%2Fmine">Sign in with GitHub</a></p>'
+            : '<p class="muted small">(GitHub sign-in isn\'t configured on this instance.)</p>'}`;
+        return;
+      }
+      const { lists } = await res.json();
+      render(lists);
+    }
+
+    function render(lists) {
+      const head = `
+        <div class="list-head" style="justify-content:space-between">
+          <h1 style="margin:0">My lists</h1>
+          <button id="new">New list</button>
+        </div>`;
+      if (!lists.length) {
+        app.innerHTML = head +
+          '<p class="muted" style="margin-top:18px">No lists yet. Create one, or open an anonymous list and claim it.</p>';
+      } else {
+        app.innerHTML = head + '<ul class="cards" id="cards"></ul>';
+        const ul = $("#cards");
+        for (const l of lists) ul.appendChild(card(l));
+      }
+      $("#new").addEventListener("click", async () => {
+        const res = await fetch("/api/lists", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        const list = await res.json();
+        location.href = "/l/" + list.id;
+      });
+    }
+
+    function card(l) {
+      const li = document.createElement("li");
+      li.className = "listcard";
+      const pct = l.item_count ? Math.round((l.done_count / l.item_count) * 100) : 0;
+      li.innerHTML = `
+        <a href="/l/${esc(l.id)}">
+          <span class="listcard-title">${esc(l.title)}</span>
+          <span class="listcard-meta">${l.done_count}/${l.item_count} done · updated ${fmtDate(l.updated_at)}</span>
+          <span class="bar"><span class="bar-fill" style="width:${pct}%"></span></span>
+        </a>`;
+      return li;
+    }
+
+    load();
+  </script>
+</body>
+</html>

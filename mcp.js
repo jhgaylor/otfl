@@ -30,6 +30,26 @@ function notFound(what) {
   };
 }
 
+// MCP is sessionless, so it can only act on anonymous (unowned) lists. Owned
+// lists are private to a signed-in web user. Returns an error result if the
+// list exists but is owned; null if it's accessible (or doesn't exist — the
+// caller's own not-found handling covers that).
+function ownershipBlock(store, listId) {
+  const meta = store.getListMeta(listId);
+  if (meta && meta.owner_id) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: "This list is private to a signed-in OTFL user and can't be accessed over the API/MCP. MCP can only read and modify anonymous lists.",
+        },
+      ],
+    };
+  }
+  return null;
+}
+
 // Build a fresh McpServer with all OTFL tools registered.
 function buildServer(store, shareBase) {
   const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });
@@ -64,6 +84,8 @@ function buildServer(store, shareBase) {
       inputSchema: { list_id: z.string().describe("The list UUID.") },
     },
     async ({ list_id }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const list = store.getList(list_id);
       return list ? ok(withShare(list)) : notFound("List");
     },
@@ -80,6 +102,8 @@ function buildServer(store, shareBase) {
       },
     },
     async ({ list_id, title }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const list = store.updateList(list_id, { title });
       return list ? ok(withShare(list)) : notFound("List");
     },
@@ -92,8 +116,13 @@ function buildServer(store, shareBase) {
       description: "Permanently delete a list and all its items. Cannot be undone.",
       inputSchema: { list_id: z.string().describe("The list UUID.") },
     },
-    async ({ list_id }) =>
-      store.deleteList(list_id) ? ok({ deleted: true, list_id }) : notFound("List"),
+    async ({ list_id }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
+      return store.deleteList(list_id)
+        ? ok({ deleted: true, list_id })
+        : notFound("List");
+    },
   );
 
   server.registerTool(
@@ -108,6 +137,8 @@ function buildServer(store, shareBase) {
       },
     },
     async ({ list_id, text, checked }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const result = store.addItem(list_id, { text, checked });
       if (result.error === "not_found") return notFound("List");
       if (result.error)
@@ -129,6 +160,8 @@ function buildServer(store, shareBase) {
       },
     },
     async ({ list_id, item_id, text, checked }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const item = store.updateItem(list_id, item_id, { text, checked });
       return item ? ok(item) : notFound("Item");
     },
@@ -145,6 +178,8 @@ function buildServer(store, shareBase) {
       },
     },
     async ({ list_id, item_id }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const list = store.getList(list_id);
       if (!list) return notFound("List");
       const found = list.items.find((i) => i.id === item_id);
@@ -163,10 +198,13 @@ function buildServer(store, shareBase) {
         item_id: z.string().describe("The item UUID."),
       },
     },
-    async ({ list_id, item_id }) =>
-      store.deleteItem(list_id, item_id)
+    async ({ list_id, item_id }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
+      return store.deleteItem(list_id, item_id)
         ? ok({ deleted: true, item_id })
-        : notFound("Item"),
+        : notFound("Item");
+    },
   );
 
   server.registerTool(
@@ -177,6 +215,8 @@ function buildServer(store, shareBase) {
       inputSchema: { list_id: z.string().describe("The list UUID.") },
     },
     async ({ list_id }) => {
+      const blk = ownershipBlock(store, list_id);
+      if (blk) return blk;
       const result = store.clearChecked(list_id);
       return result ? ok(result) : notFound("List");
     },

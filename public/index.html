@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OTFL — On The Fly List</title>
-  <meta name="description" content="Make a shareable checklist in one click. No account, no login. Knowing the link is the only key." />
+  <meta name="description" content="Make a shareable checklist in one click. No account needed — or sign in with GitHub to name and keep track of your lists." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
 </head>
@@ -15,23 +15,27 @@
       <nav class="links">
         <a href="/llms.txt">llms.txt</a>
         <a href="https://github.com/jhgaylor/otfl" target="_blank" rel="noopener">GitHub</a>
+        <span id="auth-slot"></span>
       </nav>
     </header>
 
     <h1>On the fly lists.</h1>
     <p class="tagline">
-      Spin up a shareable checklist in one click. No account, no sign-in —
-      whoever has the link can view and check things off. There's an API too.
+      Spin up a shareable checklist in one click. No account needed —
+      whoever has the link can check things off. Sign in with GitHub to name
+      and keep track of your own lists. There's an API too.
     </p>
 
     <div class="card">
-      <h2>Create a list</h2>
+      <h2 id="create-heading">Create a list</h2>
       <div class="row stack">
         <input type="text" id="title" placeholder="Title (optional) — e.g. Camping trip" autocomplete="off" />
         <div class="row">
           <button id="create">Create list →</button>
+          <button class="ghost" id="create-anon" hidden>Create shared (no owner)</button>
         </div>
       </div>
+      <p class="small muted" id="create-note" style="margin:12px 0 0"></p>
     </div>
 
     <div class="card">
@@ -48,20 +52,24 @@
     </p>
   </div>
 
+  <script src="/auth.js"></script>
   <script>
     const $ = (s) => document.querySelector(s);
 
-    $("#create").addEventListener("click", async () => {
+    async function createList(extra) {
       const title = $("#title").value.trim();
+      const body = Object.assign(title ? { title } : {}, extra || {});
       const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(title ? { title } : {}),
+        body: JSON.stringify(body),
       });
       const list = await res.json();
       location.href = "/l/" + list.id;
-    });
+    }
 
+    $("#create").addEventListener("click", () => createList());
+    $("#create-anon").addEventListener("click", () => createList({ anonymous: true }));
     $("#title").addEventListener("keydown", (e) => {
       if (e.key === "Enter") $("#create").click();
     });
@@ -70,10 +78,22 @@
       e.preventDefault();
       const raw = $("#open-input").value.trim();
       if (!raw) return;
-      // Accept a full URL or a bare id.
       const m = raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
       const id = m ? m[0] : raw;
       location.href = "/l/" + encodeURIComponent(id);
+    });
+
+    // Adjust the create card based on sign-in state.
+    window.otflMe.then((me) => {
+      if (me && me.user) {
+        $("#create").textContent = "Create private list →";
+        $("#create-anon").hidden = false;
+        $("#create-note").textContent =
+          "Private lists are saved to “My lists” and only you can open them. Use “Create shared” for an open, link-anyone list.";
+      } else if (me && me.auth_enabled) {
+        $("#create-note").innerHTML =
+          'This makes an open list anyone with the link can edit. <a href="/auth/github?rd=%2F">Sign in with GitHub</a> to save and name private lists.';
+      }
     });
   </script>
 </body>

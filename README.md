@@ -16,10 +16,34 @@ it. OTFL is that: create, share the link, done.
 
 ## How it works
 
-- **No users / no auth.** A list id (UUID v4) is the credential. Treat the link
-  like a secret if you want the list to stay private.
+- **Anonymous lists are open.** A list id (UUID v4) is the credential — anyone
+  with the link can view and edit. Treat the link like a secret.
+- **Optional GitHub sign-in.** Sign in with GitHub to *own* lists: name them and
+  track them on a "My lists" dashboard.
 - **One SQLite file** on a persistent volume. Single-writer, single-replica.
 - **A static frontend** served by the same Express process.
+
+## Ownership model
+
+| | Anonymous list (default) | Owned list (signed in) |
+| --- | --- | --- |
+| Who can open/edit | Anyone with the link | Only the owner |
+| Visibility | Shareable by link | Private to the owner |
+| Shows on dashboard | No | Yes (`/mine`) |
+| Reachable via API/MCP | Yes | No (session-less) |
+
+- Signed-in users create **private** lists by default; pass `anonymous: true` to
+  `POST /api/lists` (or use "Create shared" in the UI) to make an open one.
+- **Claim**: a signed-in user can claim any anonymous list (`POST /api/lists/{id}/claim`),
+  which makes it private to them. **Release** (`/release`) turns it back into an
+  open list.
+- The JSON API and MCP server are session-less, so they only ever touch
+  anonymous lists. Owned lists are reachable only through the owner's browser
+  session (cookie).
+
+GitHub sign-in is configured via `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
+If those env vars are unset, OTFL runs in anonymous-only mode and the sign-in
+UI is hidden.
 
 ## API
 

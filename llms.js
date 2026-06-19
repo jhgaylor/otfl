@@ -5,10 +5,13 @@
 function llmsTxt(base) {
   return `# OTFL — On The Fly List
 
-> OTFL is a free, open, no-account service for creating shareable checklists.
-> Each list has a UUID. Knowing the id is the only credential: anyone with the
-> id can read and modify the list. There are no users, owners, or auth tokens.
-> Treat a list id like a secret if you want the list to stay private.
+> OTFL is a free service for creating shareable checklists. Each list has a UUID.
+> Anonymous lists are open: anyone with the id can read and modify them — knowing
+> the id is the only credential. People can also sign in with GitHub on the website
+> to own lists; an owned list is PRIVATE to that person and is only reachable through
+> their browser session. This API and the MCP server are session-less, so they can
+> only see and modify anonymous lists. Lists you create here are anonymous/open.
+> Treat a list id like a secret if you want an anonymous list to stay private.
 
 Base URL: ${base}
 Content type: application/JSON for all request and response bodies.

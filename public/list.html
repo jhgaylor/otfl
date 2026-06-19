@@ -14,6 +14,7 @@
       <nav class="links">
         <a href="#" id="share-link">Share</a>
         <a href="/llms.txt">llms.txt</a>
+        <span id="auth-slot"></span>
       </nav>
     </header>
 
@@ -24,11 +25,13 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="/auth.js"></script>
   <script>
     const $ = (s, r = document) => r.querySelector(s);
     const listId = decodeURIComponent(location.pathname.split("/")[2] || "");
     const app = $("#app");
     let state = null;
+    let me = { user: null, auth_enabled: false };
 
     function toast(msg) {
       const t = $("#toast");
@@ -53,12 +56,28 @@
     }
 
     async function load() {
+      me = await window.otflMe;
       const res = await fetch("/api/lists/" + listId);
       if (res.status === 404) {
         app.innerHTML = `
           <h1>List not found</h1>
           <p class="muted">No list exists with this id. It may have been deleted, or the link is wrong.</p>
           <p><a href="/">← Make a new one</a></p>`;
+        return;
+      }
+      if (res.status === 401) {
+        const rd = encodeURIComponent(location.pathname);
+        app.innerHTML = `
+          <h1>This list is private</h1>
+          <p class="muted">It belongs to a signed-in OTFL user. If it's yours, sign in to open it.</p>
+          ${me.auth_enabled ? `<p><a class="btnlink" href="/auth/github?rd=${rd}">Sign in with GitHub</a></p>` : ""}`;
+        return;
+      }
+      if (res.status === 403) {
+        app.innerHTML = `
+          <h1>This list is private</h1>
+          <p class="muted">It belongs to someone else, so you can't view it.</p>
+          <p><a href="/">← Make your own</a></p>`;
         return;
       }
       state = await res.json();
@@ -68,13 +87,29 @@
     function render() {
       const done = state.items.filter((i) => i.checked).length;
       const total = state.items.length;
+      const ownedByMe = state.owned_by_me;
+      const isOwned = !!state.owner_id;
+      let badge;
+      if (ownedByMe) {
+        badge = '<span class="badge private">🔒 Private · only you</span>';
+      } else if (isOwned) {
+        badge = `<span class="badge private">🔒 Private · @${esc(state.owner.login)}</span>`;
+      } else {
+        badge = '<span class="badge open">🔗 Open · anyone with the link</span>';
+      }
+
+      // Claim button: signed in, list is currently anonymous.
+      const canClaim = me.user && !isOwned;
+      // Release button: I own it.
+      const canRelease = ownedByMe;
+
       app.innerHTML = `
         <div class="list-head">
           <input class="list-title" id="title" value="${esc(state.title)}" />
         </div>
         <div class="meta">
           <span class="count">${done}/${total}</span> done ·
-          updated ${fmtDate(state.updated_at)}
+          updated ${fmtDate(state.updated_at)} · ${badge}
         </div>
         <ul class="items" id="items"></ul>
         <form class="row add-row" id="add-form">
@@ -84,10 +119,15 @@
         <div class="footer-actions">
           <span class="small muted">id <code class="id">${esc(state.id)}</code></span>
           <span class="row">
+            ${canClaim ? '<button class="ghost" id="claim">Save to my lists</button>' : ""}
+            ${canRelease ? '<button class="ghost" id="release">Make public</button>' : ""}
             ${done ? '<button class="ghost" id="clear">Clear checked</button>' : ""}
             <button class="ghost" id="del">Delete list</button>
           </span>
-        </div>`;
+        </div>
+        ${!me.user && me.auth_enabled && !isOwned
+          ? `<p class="small muted" style="margin-top:14px"><a href="/auth/github?rd=${encodeURIComponent(location.pathname)}">Sign in with GitHub</a> to save this list and make it private to you.</p>`
+          : ""}`;
 
       const ul = $("#items");
       for (const item of state.items) ul.appendChild(itemEl(item));
@@ -116,6 +156,21 @@
         await api("POST", "/clear-checked");
         await load();
         toast("Cleared checked items");
+      });
+
+      const claim = $("#claim");
+      if (claim) claim.addEventListener("click", async () => {
+        await api("POST", "/claim");
+        await load();
+        toast("Saved to your lists — now private");
+      });
+
+      const release = $("#release");
+      if (release) release.addEventListener("click", async () => {
+        if (!confirm("Make this list public? Anyone with the link will be able to view and edit it.")) return;
+        await api("POST", "/release");
+        await load();
+        toast("List is now public");
       });
 
       $("#del").addEventListener("click", async () => {

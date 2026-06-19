@@ -41,6 +41,13 @@ spec:
               value: /data
             - name: PUBLIC_URL
               value: https://otfl.inevitable.fyi
+          envFrom:
+            # GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET for GitHub sign-in.
+            # optional: true means the app still boots (anonymous-only mode)
+            # before the secret exists. SOPS-encrypted in github-oauth.enc.yaml.
+            - secretRef:
+                name: otfl-github-oauth
+                optional: true
           ports:
             - name: http
               containerPort: 8080
