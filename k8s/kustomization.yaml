@@ -7,3 +7,4 @@ resources:
   - service.yaml
   - ingressroute.yaml
   - certificates.yaml
+  - github-oauth.enc.yaml

@@ -1,0 +1,7 @@
+# Encrypt *.enc.yaml secret values to the home-cloud age key so Flux's
+# kustomize-controller (which holds the matching private key as the sops-age
+# secret) can decrypt them in-cluster.
+creation_rules:
+  - path_regex: '\.enc\.yaml$'
+    encrypted_regex: '^(data|stringData)$'
+    age: 'age1gqdqq7uagezyew5uvhylgcasuntmltqx3mdxmwa6es5k393hg3ns4fsyrt'
