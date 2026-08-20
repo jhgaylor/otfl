@@ -26,6 +26,7 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+        runAsNonRoot: true
         fsGroup: 1000
       containers:
         - name: otfl
@@ -34,6 +35,12 @@ spec:
           # so `kubectl rollout restart` picks up the new digest.
           image: ghcr.io/jhgaylor/otfl:latest
           imagePullPolicy: Always
+          # Container only writes to DATA_DIR (the /data PVC mount, see
+          # db.js) — safe to make the rest of the filesystem read-only.
+          securityContext:
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: PORT
               value: "8080"
